@@ -522,7 +522,7 @@ async function boot(){
   });
 }
 async function doLogin(){
-  const p=new GoogleAuthProvider();
+  const p=new GoogleAuthProvider();p.setCustomParameters({prompt:"select_account"});
   try{await signInWithPopup(AUTH,p)}catch(e){
     const c=(e&&e.code)||"";
     if(/popup-blocked|operation-not-supported/.test(c)){await signInWithRedirect(AUTH,p)}
@@ -557,7 +557,10 @@ function render(){
   document.getElementById("monthnav").hidden=S.ready&&S.tab==="ajustes";
   setSync();
   if(S.error==="setup"){$main.innerHTML=`<div class="panel empty"><h2>Falta configurar o Firebase</h2><p>Preencha o arquivo <b>firebase-config.js</b> com os dados do seu projeto e publique de novo.</p></div>`;return}
-  if(S.error){$main.innerHTML=`<div class="panel empty"><h2>Não consegui abrir os dados</h2><p>${S.helenaMode?"Confira se o link está completo.":"Verifique a conexão e se as regras do Firestore foram publicadas."}</p><button class="btn" onclick="location.reload()">Tentar de novo</button></div>`;return}
+  if(S.error){const em=S.authUser&&S.authUser.email;
+    $main.innerHTML=`<div class="panel empty" style="display:flex;flex-direction:column;gap:12px;align-items:center"><h2>${em?"Esta conta não tem acesso":"Não consegui abrir os dados"}</h2>
+    <p style="margin:0">${S.helenaMode?"Confira se o link está completo.":em?`Você entrou como <b>${esc(em)}</b>. Saia e entre com a conta autorizada.`:"Verifique a conexão e tente de novo."}</p>
+    <div class="row" style="justify-content:center">${em?`<button class="btn primary" data-act="switchAcc">Sair e entrar com outra conta</button>`:""}<button class="btn" onclick="location.reload()">Tentar de novo</button></div></div>`;return}
   if(S.needLogin){$main.innerHTML=`<div class="panel empty" style="display:flex;flex-direction:column;gap:14px;align-items:center"><img src="icons/icon-192.png" alt="" width="64" height="64" style="border-radius:16px"><h2>Entre para ver seus gastos</h2><p style="margin:0">Use sua conta Google. Os dados ficam sincronizados entre celular e computador.</p><button class="btn primary" data-act="login">Entrar com Google</button></div>`;return}
   if(!S.ready){$main.innerHTML=`<div class="skeleton">Carregando seus gastos…</div>`;return}
   const v={inicio:vInicio,lanc:vLanc,painel:vPainel,helena:vHelena,importar:vImportar,ajustes:vAjustes}[S.tab]||vInicio;
@@ -1154,6 +1157,7 @@ document.addEventListener("click",e=>{
     case "recAdd":{const c=cfgClone();c.recs.push({id:"r"+rid(),d:"Novo gasto fixo",v:0,c:"nu",cat:"Lazer / Assinaturas",sp:"me",on:true,from:S.ym});S.open["a-fixos"]=true;saveConfig(c);break}
     case "recDel":{if(!confirm("Excluir este gasto fixo? Os lançamentos já feitos continuam."))break;const c=cfgClone();c.recs=c.recs.filter(r=>r.id!==el.dataset.id);saveConfig(c);break}
     case "login":doLogin();break;
+    case "switchAcc":S.error=null;signOut(AUTH).then(()=>{S.needLogin=true;render()});break;
     case "logout":if(confirm("Sair desta conta neste aparelho?"))signOut(AUTH);break;
     case "helLink":{if(!S.token){toast("Link indisponível");break}const url=location.origin+location.pathname+"#h="+S.token;
       (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast("Link da Helena copiado")).catch(()=>prompt("Copie o link:",url));break}
