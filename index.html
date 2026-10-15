@@ -793,29 +793,178 @@ function vHelena(){
 function vImportar(){
   const I=S.imp||(S.imp={card:"nu",ym:S.ym,text:"",rows:null,skipNeg:true});
   let h=`<div class="sec-t"><h2>Importar fatura</h2></div>
-  <section class="panel"><div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))">
+  <section class="panel"><p class="muted" style="margin:0 0 12px;font-size:13px">Anexe o PDF da fatura. O app lê as compras, sugere categoria e quem paga, e mostra tudo para você conferir antes de lançar.</p>
+   <div style="display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr))">
+    <label class="opt" for="pdfnu"><span class="ic" style="background:var(--nu);color:#fff">${ico("card")}</span><span><b>Fatura Nubank (PDF)</b><small>PDF da fatura enviado pelo Nubank</small></span></label>
+    <label class="opt" for="pdfinter"><span class="ic" style="background:var(--inter);color:#fff">${ico("card")}</span><span><b>Fatura Inter (PDF)</b><small>Se tiver senha, o app pede na hora</small></span></label>
+   </div>
+   <input id="pdfnu" type="file" accept="application/pdf,.pdf" hidden><input id="pdfinter" type="file" accept="application/pdf,.pdf" hidden>
+  </section>`;
+  h+=drawer("imp-outros",`<span class="ico" style="background:var(--outros)">${ico("file")}</span>`,"Outros formatos","CSV do banco, modelo de outras contas ou texto colado","",
+   `<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));margin-top:8px">
    <div class="field"><span>Cartão</span><div class="seg" role="group" aria-label="Cartão">${["nu","inter","outros"].map(c=>`<button data-act="impCard" data-c="${c}" aria-pressed="${I.card===c}">${CARDS[c].name}</button>`).join("")}</div></div>
    <div class="field"><span>Lançar na fatura de</span><select id="impym">${monthOptions(I.ym)}</select></div></div>
-   <p class="muted" style="font-size:13px;margin:12px 0 8px">Envie o CSV exportado pelo app do banco ou cole as linhas da fatura, uma compra por linha, terminando com o valor (ex.: <span class="num">Shopee *Loja - Parcela 2/4 R$ 117,50</span>).</p>
-   <p class="muted" style="font-size:13px;margin:0 0 10px">Para outras contas use o modelo: colunas <span class="num">data; descricao; valor; categoria; quem_paga; parcela</span>. Em <i>quem_paga</i> escreva <b>eu</b>, <b>metade</b> ou <b>helena</b>.</p>
+   <p class="muted" style="font-size:13px;margin:12px 0 8px">Cole as linhas da fatura (uma compra por linha, terminando com o valor) ou envie um CSV. Para outras contas use o modelo: <span class="num">data; descricao; valor; categoria; quem_paga; parcela</span>.</p>
    <div class="row" style="margin-bottom:10px"><button class="btn" data-act="tplCSV">Baixar modelo CSV</button><label class="btn" for="impfile">Escolher arquivo CSV</label><input id="impfile" type="file" accept=".csv,.txt,text/csv" hidden>
    <label class="row" style="gap:6px;font-size:14px"><input type="checkbox" id="impneg" ${I.skipNeg?"checked":""} style="width:auto;min-height:0"> Ignorar pagamentos e estornos</label></div>
    <textarea id="imptext" placeholder="Cole aqui o texto ou o CSV da fatura">${esc(I.text)}</textarea>
-   <div class="row" style="margin-top:10px"><button class="btn primary" data-act="impRead">Ler fatura</button>${I.rows?`<button class="btn ghost" data-act="impClear">Limpar</button>`:""}</div></section>`;
+   <div class="row" style="margin-top:10px"><button class="btn primary" data-act="impRead">Ler texto</button></div>`);
   if(I.rows){
-    const sel=I.rows.filter(r=>r.on);const sum=sel.reduce((a,r)=>a+r.v,0);
-    h+=`<section class="panel"><div class="panel-h"><h3>${I.rows.length} linhas lidas</h3><span class="muted">${sel.length} selecionadas · <span class="num">${fmt(sum)}</span></span></div>
-    ${I.rows.some(r=>r.dup)?`<p class="muted" style="font-size:13px;margin-top:0">Linhas apagadas já existem na fatura de ${esc(mLabel(I.ym))} e ficaram desmarcadas.</p>`:""}
+    const sel=I.rows.filter(r=>r.on);const sum=sel.reduce((a,r)=>a+r.v,0);const all=I.rows.reduce((a,r)=>a+r.v,0);
+    let head="";
+    if(I.pdf){const P=I.pdf;const ok=P.total!=null&&Math.abs(P.total-all)<0.02;
+      head=`<div class="banner" style="margin-bottom:12px;${ok?"":"border-color:var(--warn);background:var(--warn-soft)"}"><div><b>Fatura ${esc(CARDS[I.card].name)}${P.due?" · vence "+fmtDate(P.due):""}</b>
+        <div class="muted" style="font-size:13px">${I.rows.length} lançamentos lidos · soma <span class="num">${fmt(all)}</span>${P.total!=null?` · total no PDF <span class="num">${fmt(P.total)}</span>`:""}</div>
+        <div style="font-size:13px;margin-top:4px">${P.total==null?"Não encontrei o total no PDF para conferir.":ok?`<span class="pill good">${ico("check","i")}Soma confere com o PDF</span>`:`<span class="pill warn">Diferença de ${fmt(P.total-all)}: confira se faltou alguma linha</span>`}</div></div>
+        <div class="field"><span>Lançar na fatura de</span><select id="impym">${monthOptions(I.ym)}</select></div></div>`}
+    h+=`<section class="panel">${head}<div class="panel-h"><h3>Conferir lançamentos</h3><span class="muted">${sel.length} selecionados · <span class="num">${fmt(sum)}</span></span></div>
+    ${I.rows.some(r=>r.dup||r.maybe||r.moveFrom)?`<p class="muted" style="font-size:13px;margin-top:0">Linhas desmarcadas já existem na fatura de ${esc(mLabel(I.ym))}. Parcelas que estavam previstas para outro mês serão movidas para cá, sem duplicar.</p>`:""}
     <div class="tscroll"><table class="t imp-table"><thead><tr><th></th><th>Descrição</th><th class="r">Valor</th><th>Categoria</th><th>Quem paga</th></tr></thead><tbody>
-    ${I.rows.map((r,i)=>`<tr class="${r.dup?"dup":""}"><td><input type="checkbox" id="ir-on-${i}" data-imp="${i}" data-f="on" ${r.on?"checked":""} aria-label="Incluir" style="width:auto;min-height:0"></td>
-      <td><input id="ir-d-${i}" data-imp="${i}" data-f="d" value="${esc(r.d)}" aria-label="Descrição" style="min-width:170px">${r.date||r.inst?`<div class="muted" style="font-size:11px">${esc(r.date||"")}${r.inst?(r.date?" · ":"")+"parcela "+r.inst.n+"/"+r.inst.N:""}</div>`:""}</td>
+    ${I.rows.map((r,i)=>{const notes=[];if(r.date)notes.push(esc(r.date));if(r.card4)notes.push("final "+esc(r.card4));if(r.inst)notes.push("parcela "+r.inst.n+"/"+r.inst.N);if(r.holder&&/HELENA/.test(norm(r.holder)))notes.push(esc(r.holder));
+      if(r.dup)notes.push(`<b>já lançado: ${esc(r.dup)}</b>`);else if(r.maybe)notes.push(`<b>valor igual a "${esc(r.maybe)}"</b>`);if(r.moveFrom)notes.push(`<b>prevista em ${esc(mShort(r.moveFrom.ym))}, será movida</b>`);
+      return `<tr class="${r.dup||r.maybe?"dup":""}"><td><input type="checkbox" id="ir-on-${i}" data-imp="${i}" data-f="on" ${r.on?"checked":""} aria-label="Incluir" style="width:auto;min-height:0"></td>
+      <td><input id="ir-d-${i}" data-imp="${i}" data-f="d" value="${esc(r.d)}" aria-label="Descrição" style="min-width:170px">${notes.length?`<div class="muted" style="font-size:11px">${notes.join(" · ")}</div>`:""}</td>
       <td class="r num">${fmt(r.v)}</td>
       <td><select id="ir-c-${i}" data-imp="${i}" data-f="cat" data-catsel aria-label="Categoria">${catOptions(r.cat)}</select></td>
-      <td><select id="ir-s-${i}" data-imp="${i}" data-f="sp" aria-label="Quem paga">${Object.entries(SPLIT).map(([k,l])=>`<option value="${k}" ${r.sp===k?"selected":""}>${l}</option>`).join("")}</select></td></tr>`).join("")}
+      <td><select id="ir-s-${i}" data-imp="${i}" data-f="sp" aria-label="Quem paga">${Object.entries(SPLIT).map(([k,l])=>`<option value="${k}" ${r.sp===k?"selected":""}>${l}</option>`).join("")}</select></td></tr>`}).join("")}
     </tbody></table></div>
-    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="impSave">Adicionar ${sel.length} lançamento${sel.length===1?"":"s"}</button><span class="muted" style="font-size:13px">Parcelas restantes são lançadas nos meses seguintes.</span></div></section>`;
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="impSave">Adicionar ${sel.length} lançamento${sel.length===1?"":"s"}</button><button class="btn ghost" data-act="impClear">Descartar</button><span class="muted" style="font-size:13px">Parcelas restantes entram nos meses seguintes.</span></div></section>`;
   }
   return h;
+}
+/* ---------- leitura de PDF (Nubank / Inter) ---------- */
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("load "+src));document.head.appendChild(s)})}
+async function loadPdfJs(){if(!window.pdfjsLib){await loadScript("lib/pdf.min.js")}window.pdfjsLib.GlobalWorkerOptions.workerSrc="lib/pdf.worker.min.js";return window.pdfjsLib}
+async function pdfLines(bytes,password){
+  const pdfjs=await loadPdfJs();
+  const doc=await pdfjs.getDocument({data:new Uint8Array(bytes.slice(0)),password:password||undefined,isEvalSupported:false}).promise;
+  const lines=[];
+  for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p);const tc=await page.getTextContent();const rows=[];
+    for(const it of tc.items){if(!it.str||!it.str.trim())continue;const x=it.transform[4],y=it.transform[5];let r=rows.find(r=>Math.abs(r.y-y)<3);if(!r){r={y,items:[]};rows.push(r)}r.items.push({x,s:it.str,w:it.width||0})}
+    rows.sort((a,b)=>b.y-a.y);
+    for(const r of rows){r.items.sort((a,b)=>a.x-b.x);let s="",end=null;for(const it of r.items){if(end!=null&&it.x-end>0.8)s+=" ";s+=it.s;end=it.x+it.w}lines.push(s.replace(/\s+/g," ").trim())}}
+  try{doc.destroy()}catch(_){}
+  return lines;
+}
+let PW=null;
+function askPassword(msg){return new Promise(res=>{PW=res;openDialog(`<div class="row" style="justify-content:space-between"><h2>PDF com senha</h2><button class="iconbtn" data-act="pwCancel" aria-label="Fechar">${ico("x")}</button></div>
+  <p style="margin:0">${esc(msg)} A senha costuma vir indicada no e-mail do banco. Ela é usada só para abrir o arquivo neste aparelho e não fica salva.</p>
+  <label class="field"><span>Senha do PDF</span><input id="pw-in" type="password" autocomplete="off"></label>
+  <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-act="pwCancel">Cancelar</button><button class="btn primary" data-act="pwOk">Abrir</button></div>`)})}
+async function readPdf(bytes){
+  let pw=null;
+  for(let t=0;t<5;t++){
+    try{return await pdfLines(bytes,pw)}catch(e){
+      if(e&&e.name==="PasswordException"){pw=await askPassword(pw?"Senha incorreta. Tente de novo.":"Este PDF está protegido por senha.");if(pw==null)return null;continue}
+      throw e}}
+  return null;
+}
+const MON={JAN:1,FEV:2,MAR:3,ABR:4,MAI:5,JUN:6,JUL:7,AGO:8,SET:9,OUT:10,NOV:11,DEZ:12};
+const pad2=n=>String(n).padStart(2,"0");
+function yearFor(mon,due){if(!due)return new Date().getFullYear();const [y,m]=due.split("-").map(Number);return mon>m?y-1:y}
+function detectBank(lines){const t=norm(lines.join(" "));if(/NU PAGAMENTOS|NUBANK/.test(t))return "nu";if(/BANCO INTER|INTER LOOP|SUPER APP/.test(t))return "inter";return null}
+function cleanInst(d){
+  let inst=null,m;
+  if((m=d.match(/\(\s*Parcela\s+(\d{1,2})\s+de\s+(\d{1,2})\s*\)/i))){inst={n:+m[1],N:+m[2]};d=d.replace(m[0],"")}
+  else if((m=d.match(/\s*-?\s*Parcela\s+(\d{1,2})\s*\/\s*(\d{1,2})/i))){inst={n:+m[1],N:+m[2]};d=d.replace(m[0],"")}
+  let ant=false;if(/^Antecipad[ao]\s*-\s*/i.test(d)){ant=true;d=d.replace(/^Antecipad[ao]\s*-\s*/i,"")}
+  d=d.replace(/\s+-\s*$/,"").replace(/\s+/g," ").trim();
+  if(ant)d+=" (antecipada)";
+  if(inst&&inst.n>=1&&inst.n<=inst.N&&inst.N>=2)d+=` ${inst.n}/${inst.N}`;else inst=null;
+  return {d,inst};
+}
+function parseNubank(lines){
+  const txt=lines.join("\n");let due=null,m;
+  if((m=txt.match(/Data de vencimento:?\s*(\d{2})\s+([A-Z]{3})\s+(\d{4})/i))||(m=txt.match(/FATURA\s+(\d{2})\s+([A-Z]{3})\s+(\d{4})/)))due=`${m[3]}-${pad2(MON[m[2].toUpperCase()])}-${m[1]}`;
+  const rows=[];let holder=null,inPay=false,started=false,holderSum=0,holders=0;
+  const re=new RegExp("^(\\d{2})\\s+("+Object.keys(MON).join("|")+")\\s+(?:[^\\w\\s]{2,}\\s*(\\d{4})\\s+)?(.+?)\\s+([−–-])?\\s?R\\$\\s?([\\d.]+,\\d{2})$","i");
+  for(const l of lines){
+    if(/^TRANSA[ÇC][ÕO]ES/i.test(l)){started=true;continue}
+    if(!started)continue;
+    if(/^Pagamentos\b/i.test(l)){inPay=true;continue}
+    const t=l.match(re);
+    if(!t){const hm=l.match(/^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .']{2,60}?)\s+R\$\s?([\d.]+,\d{2})$/);if(hm&&!/TOTAL|SALDO|LIMITE/i.test(hm[1])){holder=hm[1].trim();inPay=false;holderSum+=parseMoney(hm[2]);holders++}continue}
+    if(inPay)continue;
+    const raw=t[4];if(/^Pagamento em\b/i.test(raw))continue;
+    let v=parseMoney(t[6]);if(t[5])v=-v;
+    const mon=MON[t[2].toUpperCase()];const dt=`${yearFor(mon,due)}-${pad2(mon)}-${t[1]}`;
+    const c=cleanInst(raw);rows.push({d:c.d,v:r2(v),dt,date:fmtDate(dt),card4:t[3]||"",holder,inst:c.inst});
+  }
+  let total=holders?r2(holderSum):null;
+  if(total==null){const a=txt.match(/Total de compras[^\n]*?R\$\s?([\d.]+,\d{2})/i),b=txt.match(/Outros lan[çc]amentos\s+R\$\s?([\d.]+,\d{2})/i);if(a)total=r2(parseMoney(a[1])+(b?parseMoney(b[1]):0))}
+  return {bank:"nu",due,total,rows};
+}
+function parseInter(lines){
+  const txt=lines.join("\n");let due=null,m;
+  if((m=txt.match(/Data de Vencimento\s*\n?\s*(\d{2})\/(\d{2})\/(\d{4})/i))||(m=txt.match(/\b(\d{2})\/(\d{2})\/(\d{4})\s+R\$\s?[\d.]+,\d{2}/)))due=`${m[3]}-${m[2]}-${m[1]}`;
+  let total=null;if((m=txt.match(/Despesas do m[eê]s\s+R\$\s?([\d.]+,\d{2})/i))||(m=txt.match(/Total da sua fatura\s*\n?\s*R\$\s?([\d.]+,\d{2})/i)))total=parseMoney(m[1]);
+  const rows=[];let card4="";
+  const re=/^(\d{1,2}) de ([a-zç]{3})\.? (\d{4}) (.+?)\s+(\+|-)?\s?R\$ ?([\d.]+,\d{2})$/i;
+  for(const l of lines){
+    const cm=l.match(/^CART[ÃA]O\s+\d{4}\*+(\d{4})/i);if(cm){card4=cm[1];continue}
+    const t=l.match(re);if(!t)continue;
+    const raw=t[4].replace(/\s+-\s*$/,"").trim();
+    if(t[5]==="+"&&/PAGAMENTO/i.test(raw))continue;
+    let v=parseMoney(t[6]);if(t[5]==="+")v=-v;
+    const mon=MON[t[2].toUpperCase().replace("Ç","C")]||MON[norm(t[2])];const dt=`${t[3]}-${pad2(mon)}-${pad2(t[1])}`;
+    const c=cleanInst(raw);rows.push({d:c.d,v:r2(v),dt,date:fmtDate(dt),card4,holder:null,inst:c.inst});
+  }
+  return {bank:"inter",due,total,rows};
+}
+const STOP=new Set(["PARCELA","NUPAY","ANTECIPADA","COM","BR","LTDA","STORE","SHOP","SAO","LUIS"]);
+function toks(d){return new Set(baseKey(d).split(" ").filter(w=>w.length>=4&&!STOP.has(w)))}
+function markDups(I){
+  const doc=getMonth(I.ym)||{items:[]};const ex=(doc.items||[]).filter(x=>x.c===I.card);const used=new Set();
+  for(const r of I.rows){
+    r.dup=null;r.maybe=null;r.moveFrom=null;r.on=true;
+    const rt=toks(r.d);
+    let j=ex.findIndex((x,k)=>!used.has(k)&&Math.abs(x.v-r.v)<0.011&&([...toks(x.d)].some(w=>rt.has(w))||(x.rec&&baseKey(x.d).split(" ")[0]===baseKey(r.d).split(" ")[0])));
+    if(j<0&&r.inst)j=ex.findIndex((x,k)=>!used.has(k)&&x.inst&&x.inst.n===r.inst.n&&x.inst.N===r.inst.N&&Math.abs(x.v-r.v)<=Math.max(0.05,Math.abs(r.v)*0.01));
+    if(j>=0){used.add(j);r.dup=ex[j].d;r.on=false;continue}
+    j=ex.findIndex((x,k)=>!used.has(k)&&Math.abs(x.v-r.v)<0.011);
+    if(j>=0){used.add(j);r.maybe=ex[j].d;r.on=false;continue}
+    if(r.inst){ // parcela prevista em outro mês (projeção ou antecipação)
+      for(let k=1;k<=r.inst.N&&!r.moveFrom;k++)for(const dir of [1,-1]){const m=addM(I.ym,k*dir);const d=getMonth(m);if(!d)continue;
+        const x=(d.items||[]).find(x=>x.c===I.card&&x.inst&&x.inst.n===r.inst.n&&x.inst.N===r.inst.N&&Math.abs(x.v-r.v)<=Math.max(0.05,Math.abs(r.v)*0.01));
+        if(x&&dir===1){r.moveFrom={ym:m,id:x.id,g:x.inst.g||null};break}}
+    }
+  }
+}
+function applyImport(I,sel){
+  const docs={};const get=m=>docs[m]||(docs[m]=monthOrBlank(m));
+  for(const r of sel)if(r.moveFrom){const d=get(r.moveFrom.ym);d.items=d.items.filter(x=>x.id!==r.moveFrom.id)}
+  const find=(m,n,N,v)=>{const d=get(m);return (d.items||[]).find(x=>x.c===I.card&&x.inst&&x.inst.n===n&&x.inst.N===N&&Math.abs(x.v-v)<=Math.max(0.05,Math.abs(v)*0.01))};
+  let n=0;
+  for(const r of sel){
+    const it={id:rid(),d:r.d,v:r.v,c:I.card,cat:r.cat,sp:r.sp,src:I.pdf?"pdf":"import",ts:new Date().toISOString()};if(r.dt)it.dt=r.dt;if(r.card4)it.card4=r.card4;
+    if(r.inst){let g=(r.moveFrom&&r.moveFrom.g)||null;
+      for(let k=r.inst.n+1;k<=r.inst.N&&!g;k++){const f=find(addM(I.ym,k-r.inst.n),k,r.inst.N,r.v);if(f&&f.inst.g)g=f.inst.g}
+      it.inst={n:r.inst.n,N:r.inst.N,g:g||rid()}}
+    get(I.ym).items.push(it);n++;
+    if(it.inst){const base=stripInst(it.d.replace(/\s*\(antecipada\)/i,""));
+      const here=new Set(sel.filter(o=>o!==r&&o.inst&&o.inst.N===it.inst.N&&Math.abs(o.v-it.v)<=Math.max(0.05,Math.abs(it.v)*0.01)&&baseKey(stripInst(o.d.replace(/\s*\(antecipada\)/i,""))).split(" ")[0]===baseKey(base).split(" ")[0]).map(o=>o.inst.n));
+      if(/\(antecipada\)/i.test(it.d))continue; // parcela adiantada: as seguintes já vêm na mesma fatura ou foram antecipadas
+      for(let k=it.inst.n+1;k<=it.inst.N;k++){if(here.has(k))continue;const m=addM(I.ym,k-it.inst.n);if(find(m,k,it.inst.N,it.v))continue;
+        const f=JSON.parse(JSON.stringify(it));f.id=rid();f.d=`${base} ${k}/${it.inst.N}`;f.inst={n:k,N:it.inst.N,g:it.inst.g};delete f.dt;delete f.ts;f.proj=true;get(m).items.push(f)}}
+  }
+  for(const m in docs)saveMonth(docs[m],true);
+  render();return n;
+}
+async function importPdfFile(file,expect){
+  toast("Lendo o PDF…");
+  let lines;try{lines=await readPdf(await file.arrayBuffer())}catch(e){console.error(e);toast("Não consegui ler esse PDF. Confira se é a fatura em PDF do banco.");return}
+  if(!lines){toast("Leitura cancelada");return}
+  const bank=detectBank(lines)||expect;
+  if(bank!==expect&&!confirm(`Esse PDF parece ser uma fatura do ${CARDS[bank].name}, não do ${CARDS[expect].name}. Ler como ${CARDS[bank].name}?`))return;
+  const P=bank==="inter"?parseInter(lines):parseNubank(lines);
+  if(!P.rows.length){toast("Não encontrei lançamentos nesse PDF. O layout pode ter mudado; me avise.");return}
+  const ym=P.due?P.due.slice(0,7):S.ym;
+  const rows=P.rows.map(r=>{let sp=suggestSplit(r.d);if(r.holder&&/HELENA/.test(norm(r.holder)))sp="hel";return Object.assign(r,{cat:suggestCat(r.d),sp,on:true})});
+  S.imp={card:bank,ym,text:"",rows,skipNeg:true,pdf:{bank,due:P.due,total:P.total,file:file.name}};
+  markDups(S.imp);render();
+  setTimeout(()=>{const t=document.querySelector(".imp-table");if(t)t.closest("section").scrollIntoView({behavior:"smooth",block:"start"})},50);
+  const nDup=rows.filter(r=>r.dup||r.maybe).length;
+  toast(`${rows.length} lançamentos lidos${nDup?` · ${nDup} já existiam`:""}`);
 }
 function monthOptions(sel){const out=[];for(let k=-14;k<=6;k++){const m=addM(todayYM,k);out.push(`<option value="${m}" ${m===sel?"selected":""}>${mLabel(m)}</option>`)}if(!out.join("").includes(`"${sel}"`))out.push(`<option value="${sel}" selected>${mLabel(sel)}</option>`);return out.join("")}
 function parseImport(text,skipNeg){
@@ -1111,7 +1260,7 @@ document.addEventListener("click",e=>{
     case "add":openEditor(S.ym,null,el.dataset.card);break;
     case "edit":openEditor(S.ym,+el.dataset.i);break;
     case "closeEd":ED=null;drawEditor();break;
-    case "closeDlg":if(NEWCAT){const f=NEWCAT.from;NEWCAT=null;closeDialog();if(f==="ed-cat"&&ED){drawEditor()}else render()}else closeDialog();break;
+    case "closeDlg":if(PW){const f=PW;PW=null;closeDialog();f(null);break}if(NEWCAT){const f=NEWCAT.from;NEWCAT=null;closeDialog();if(f==="ed-cat"&&ED){drawEditor()}else render()}else closeDialog();break;
     case "ncSave":createCategory();break;
     case "catNew":openNewCat(null);break;
     case "catDel":askDeleteCategory(el.dataset.k);break;
@@ -1147,13 +1296,12 @@ document.addEventListener("click",e=>{
     case "impCard":S.imp.card=el.dataset.c;S.imp.text=document.getElementById("imptext").value;render();break;
     case "impRead":{const I=S.imp;I.text=document.getElementById("imptext").value;I.ym=document.getElementById("impym").value;I.skipNeg=document.getElementById("impneg").checked;
       const rows=parseImport(I.text,I.skipNeg);if(!rows.length){toast("Não encontrei compras nesse texto");break}
-      const ex=(getMonth(I.ym)||{items:[]}).items.filter(x=>x.c===I.card);const used=new Set();
-      rows.forEach(r=>{const j=ex.findIndex((x,k)=>!used.has(k)&&Math.abs(x.v-r.v)<0.01&&(baseKey(x.d)===baseKey(r.d)||(x.inst&&r.inst&&x.inst.n===r.inst.n&&x.inst.N===r.inst.N)||(x.rec&&baseKey(x.d).split(" ")[0]===baseKey(r.d).split(" ")[0])));if(j>=0){used.add(j);r.dup=true;r.on=false}});
-      I.rows=rows;render();break}
+      I.rows=rows;I.pdf=null;markDups(I);render();break}
     case "impClear":S.imp=null;render();break;
-    case "impSave":{const I=S.imp;readImpRows();const sel=I.rows.filter(r=>r.on);if(!sel.length){toast("Nenhuma linha selecionada");break}
-      const all=[];for(const r of sel){const it={id:rid(),d:r.d,v:r.v,c:I.card,cat:r.cat,sp:r.sp,src:"import",ts:new Date().toISOString()};if(r.dt)it.dt=r.dt;if(r.inst)it.inst={n:r.inst.n,N:r.inst.N,g:rid()};all.push(...expandInstallments(I.ym,it))}
-      writeItems(all);toast(sel.length+" lançamentos adicionados");S.ym=I.ym;S.userNav=true;S.imp=null;S.tab="lanc";setTab();break}
+    case "impSave":{const I=S.imp;readImpRows();const ymEl=document.getElementById("impym");if(ymEl)I.ym=ymEl.value;const sel=I.rows.filter(r=>r.on);if(!sel.length){toast("Nenhuma linha selecionada");break}
+      const n=applyImport(I,sel);toast(n+" lançamentos adicionados");S.ym=I.ym;S.userNav=true;S.imp=null;S.tab="lanc";setTab();break}
+    case "pwOk":{const v=document.getElementById("pw-in").value;const f=PW;PW=null;closeDialog();if(f)f(v);break}
+    case "pwCancel":{const f=PW;PW=null;closeDialog();if(f)f(null);break}
     case "recAdd":{const c=cfgClone();c.recs.push({id:"r"+rid(),d:"Novo gasto fixo",v:0,c:"nu",cat:"Lazer / Assinaturas",sp:"me",on:true,from:S.ym});S.open["a-fixos"]=true;saveConfig(c);break}
     case "recDel":{if(!confirm("Excluir este gasto fixo? Os lançamentos já feitos continuam."))break;const c=cfgClone();c.recs=c.recs.filter(r=>r.id!==el.dataset.id);saveConfig(c);break}
     case "login":doLogin();break;
@@ -1181,7 +1329,8 @@ document.addEventListener("change",e=>{
   if(t.dataset.imp!=null){readImpRows();return}
   if(t.id==="bkfile"){const f=t.files&&t.files[0];if(f)importBackup(f);t.value="";return}
   if(t.id==="pix"){const c=cfgClone();c.pix=t.value.trim();saveConfig(c);return}
-  if(t.id==="impym"&&S.imp){S.imp.ym=t.value;return}
+  if(t.id==="pdfnu"||t.id==="pdfinter"){const f=t.files&&t.files[0];t.value="";if(f)importPdfFile(f,t.id==="pdfnu"?"nu":"inter");return}
+  if(t.id==="impym"&&S.imp){if(S.imp.rows){readImpRows();S.imp.ym=t.value;markDups(S.imp);render()}else S.imp.ym=t.value;return}
   if(t.id==="impfile"){const f=t.files&&t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{S.imp.text=String(rd.result);S.imp.ym=document.getElementById("impym").value;render()};rd.readAsText(f,"utf-8");return}
 });
 document.addEventListener("toggle",e=>{const d=e.target;if(d.matches&&d.matches("details.drw")){S.open[d.dataset.key]=d.open;try{localStorage.setItem("gm.open",JSON.stringify(S.open))}catch(_){}}},true);
@@ -1190,7 +1339,8 @@ document.addEventListener("input",e=>{
   if(e.target.id==="ed-v"&&ED){ED.valStr=e.target.value;const v=parseMoney(ED.valStr)||0;const me=ED.it.sp==="me"?v:ED.it.sp==="half"?v/2:0;const p=document.querySelector(".preview");if(p){p.children[0].textContent=fmt(me);p.children[1].textContent=fmt(v-me)}}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(document.getElementById("dlg").innerHTML){closeDialog();if(NEWCAT){NEWCAT=null;ED?drawEditor():render()}}else if(ED){ED=null;drawEditor()}}
-  if(e.key==="Enter"&&e.target.id==="nc-name"){e.preventDefault();createCategory()}});
+  if(e.key==="Enter"&&e.target.id==="nc-name"){e.preventDefault();createCategory()}
+  if(e.key==="Enter"&&e.target.id==="pw-in"){e.preventDefault();const f=PW;const v=e.target.value;PW=null;closeDialog();if(f)f(v)}});
 document.getElementById("bnav").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(!b)return;S.tab=b.dataset.tab;setTab()});
 function setTab(){try{if(S.tab!=="helena")localStorage.setItem("gm.tab",S.tab)}catch(_){}render();window.scrollTo(0,0)}
 /* tooltips */
